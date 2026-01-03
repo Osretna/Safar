@@ -66,7 +66,7 @@
             margin-left: 10px;
         }
 
-        /* اللوحة السفلى */
+        /* لوحة التحكم */
         .bottom-card {
             position: fixed;
             bottom: 20px;
@@ -75,7 +75,7 @@
             background: white;
             z-index: 1000;
             border-radius: 15px;
-            padding: 20px;
+            padding: 15px;
             box-sizing: border-box;
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
             text-align: center;
@@ -86,7 +86,7 @@
             padding: 12px;
             border-radius: 8px;
             border: 1px solid #ddd;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             font-family: 'Cairo';
             font-size: 14px;
             box-sizing: border-box;
@@ -144,7 +144,7 @@
 
     <div id="auth-screen">
         <h1>مشواري</h1>
-        <p>أسرع وسيلة للتنقل في مصر</p>
+        <p>أسرع وأرخص وسيلة للتنقل في مصر</p>
         <button class="google-btn" onclick="loginWithGoogle()">
             <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg">
             الدخول باستخدام جوجل
@@ -154,25 +154,29 @@
     <div id="map"></div>
 
     <div class="bottom-card" id="control-panel" style="display:none;">
-        <div id="location-status" style="font-weight: bold; margin-bottom: 10px;">📍 حدد تفاصيل رحلتك</div>
+        <div id="location-status" style="font-weight: bold; margin-bottom: 8px; font-size: 13px;">📍 حدد مكانك ووجهتك
+        </div>
 
-        <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+        <!-- خانة مكان الالتقاء -->
+        <div style="display: flex; gap: 5px; margin-bottom: 5px;">
             <input type="text" id="pickup-input" class="search-box"
-                style="margin-bottom:0; border-right: 4px solid #27ae60;" placeholder="مكان الالتقاء (جاري التحديد...)">
+                style="margin-bottom:0; border-right: 4px solid #27ae60;" placeholder="اختر مكان الالتقاء من الخريطة">
             <button onclick="searchPlace('pickup')"
                 style="background: #27ae60; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">🔍</button>
         </div>
 
-        <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+        <!-- خانة الوجهة -->
+        <div style="display: flex; gap: 5px; margin-bottom: 8px;">
             <input type="text" id="dest-input" class="search-box"
-                style="margin-bottom:0; border-right: 4px solid #e74c3c;" placeholder="إلى أين تريد الذهاب؟">
+                style="margin-bottom:0; border-right: 4px solid #e74c3c;" placeholder="إلى أين ستذهب؟">
             <button onclick="searchPlace('dest')"
                 style="background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">🔍</button>
         </div>
 
         <div id="price-estimation"
-            style="font-weight:bold; color:#2c3e50; background: #f9f9f9; padding: 8px; border-radius: 8px; margin-bottom: 10px;">
-            حدد النقطتين لحساب السعر...</div>
+            style="font-weight:bold; color:#2c3e50; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 14px;">
+            حدد الوجهة لحساب الأجرة...
+        </div>
         <button class="btn-request" id="main-btn" onclick="requestRide()">تأكيد وطلب الرحلة الآن</button>
     </div>
 
@@ -215,19 +219,21 @@
 
         window.loginWithGoogle = async () => {
             try { await signInWithPopup(auth, provider); }
-            catch (e) { alert("تأكد من تفعيل Google Sign-in في Firebase Console"); }
+            catch (e) { alert("حدث خطأ في الدخول"); }
         };
 
-        // وظيفة جلب اسم المكان من الإحداثيات
-        async function getAddressFromCoords(lat, lng, inputId) {
+        // دالة سحرية لتحويل الإحداثيات لاسم شارع/منطقة
+        async function updateAddressField(lat, lng, inputId) {
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`);
                 const data = await res.json();
                 if (data.display_name) {
-                    const address = data.address.road || data.address.suburb || data.address.city || "موقع محدد";
-                    document.getElementById(inputId).value = address;
+                    const addr = data.address;
+                    // تجميع اسم مختصر للعنوان
+                    const shortName = addr.road || addr.suburb || addr.neighbourhood || addr.city || "موقع مجهول";
+                    document.getElementById(inputId).value = shortName;
                 }
-            } catch (e) { console.log("Error fetching address"); }
+            } catch (e) { console.log("Geocode Error"); }
         }
 
         onAuthStateChanged(auth, (user) => {
@@ -242,15 +248,21 @@
             if (map) return;
             map = L.map('map', { zoomControl: false }).setView([30.0444, 31.2357], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
             map.locate({ setView: true, maxZoom: 16 });
 
             map.on('locationfound', (e) => {
-                if (!pickupLoc) updatePickup(e.latlng.lat, e.latlng.lng);
+                if (!pickupLoc) setPickup(e.latlng.lat, e.latlng.lng);
+            });
+
+            // السماح بتغيير الوجهة بمجرد النقر على الخريطة
+            map.on('click', (e) => {
+                if (!pickupLoc) setPickup(e.latlng.lat, e.latlng.lng);
+                else setDestination(e.latlng.lat, e.latlng.lng);
             });
         }
 
-        // دالة تحديث مكان الالتقاء (مع جلب العنوان تلقائياً)
-        function updatePickup(lat, lng) {
+        function setPickup(lat, lng) {
             pickupLoc = { lat, lng };
             if (pickupMarker) map.removeLayer(pickupMarker);
             pickupMarker = L.marker([lat, lng], {
@@ -258,82 +270,77 @@
                 icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', iconSize: [25, 41], iconAnchor: [12, 41] })
             }).addTo(map).bindPopup("مكان الالتقاء").openPopup();
 
-            getAddressFromCoords(lat, lng, 'pickup-input');
+            updateAddressField(lat, lng, 'pickup-input');
 
             pickupMarker.on('dragend', (e) => {
                 const pos = e.target.getLatLng();
                 pickupLoc = { lat: pos.lat, lng: pos.lng };
-                getAddressFromCoords(pos.lat, pos.lng, 'pickup-input');
-                calculateFinalFare();
+                updateAddressField(pos.lat, pos.lng, 'pickup-input');
+                calculateFare();
             });
-            calculateFinalFare();
+            calculateFare();
+        }
+
+        function setDestination(lat, lng) {
+            destinationLoc = { lat, lng };
+            if (destinationMarker) map.removeLayer(destinationMarker);
+            destinationMarker = L.marker([lat, lng], {
+                draggable: true,
+                icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] })
+            }).addTo(map).bindPopup("وجهة الوصول").openPopup();
+
+            updateAddressField(lat, lng, 'dest-input');
+
+            destinationMarker.on('dragend', (e) => {
+                const pos = e.target.getLatLng();
+                destinationLoc = { lat: pos.lat, lng: pos.lng };
+                updateAddressField(pos.lat, pos.lng, 'dest-input');
+                calculateFare();
+            });
+            calculateFare();
         }
 
         window.searchPlace = async (type) => {
             const query = document.getElementById(type === 'pickup' ? 'pickup-input' : 'dest-input').value;
-            if (query.length < 3) return alert("اكتب اسم المكان بوضوح");
+            if (query.length < 3) return;
 
             const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
             const data = await res.json();
-
             if (data.length > 0) {
                 const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
-                if (type === 'pickup') {
-                    updatePickup(lat, lon);
-                } else {
-                    destinationLoc = { lat, lng: lon };
-                    if (destinationMarker) map.removeLayer(destinationMarker);
-                    destinationMarker = L.marker([lat, lon], {
-                        draggable: true,
-                        icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] })
-                    }).addTo(map).bindPopup("وجهة الوصول").openPopup();
-
-                    destinationMarker.on('dragend', (e) => {
-                        destinationLoc = { lat: e.target.getLatLng().lat, lng: e.target.getLatLng().lng };
-                        calculateFinalFare();
-                    });
-                }
-                if (pickupLoc && destinationLoc) map.fitBounds([[pickupLoc.lat, pickupLoc.lng], [destinationLoc.lat, destinationLoc.lng]], { padding: [50, 50] });
-                else map.flyTo([lat, lon], 15);
-                calculateFinalFare();
-            } else { alert("لم نجد العنوان"); }
+                if (type === 'pickup') setPickup(lat, lon);
+                else setDestination(lat, lon);
+                map.flyTo([lat, lon], 15);
+            }
         };
 
-        // دالة حساب السعر الذكية (مع عمولتك)
-        async function calculateFinalFare() {
+        async function calculateFare() {
             if (!pickupLoc || !destinationLoc) return;
-            const url = `https://router.project-osrm.org/route/v1/driving/${pickupLoc.lng},pickupLoc.lat;${destinationLoc.lng},${destinationLoc.lat}?overview=false`;
+            const url = `https://router.project-osrm.org/route/v1/driving/${pickupLoc.lng},${pickupLoc.lat};${destinationLoc.lng},${destinationLoc.lat}?overview=false`;
             try {
-                const response = await fetch(url);
-                const data = await response.json();
+                const res = await fetch(url);
+                const data = await res.json();
                 if (data.routes && data.routes[0]) {
-                    const distanceKM = data.routes[0].distance / 1000;
-
-                    // المعادلة: 10 (فتح عداد) + (المسافة * 4.5 سعر الكيلو) + 5 (عمولتك)
-                    estimatedFare = Math.ceil(10 + (distanceKM * 4.5) + 5);
-
+                    const dist = data.routes[0].distance / 1000;
+                    estimatedFare = Math.ceil(10 + (dist * 4.5) + 5);
                     document.getElementById('price-estimation').innerHTML = `
-                        <div style="font-size:12px; color:gray;">أرخص من أوبر وديدي</div>
-                        <b>المسافة: ${distanceKM.toFixed(1)} كم | الأجرة: ${estimatedFare} ج.م</b>
+                        <div style="font-size:11px; color:green;">أرخص سعر في مصر</div>
+                        المسافة: ${dist.toFixed(1)} كم | الأجرة: ${estimatedFare} ج.م
                     `;
                 }
-            } catch (e) { console.log("Fare error"); }
+            } catch (e) { console.log("Fare Error"); }
         }
 
         window.requestRide = async () => {
-            if (!pickupLoc || !destinationLoc) return alert("حدد نقطة الالتقاء والوجهة أولاً");
+            if (!pickupLoc || !destinationLoc) return alert("حدد مكانك ووجهتك");
             const btn = document.getElementById('main-btn');
-            btn.innerText = "جاري البحث عن كابتن...";
-            btn.disabled = true;
+            btn.innerText = "جاري البحث عن كابتن..."; btn.disabled = true;
 
             const rideId = "ride_" + auth.currentUser.uid;
             await setDoc(doc(db, "rides", rideId), {
                 riderName: auth.currentUser.displayName,
-                pickup: pickupLoc,
-                destination: destinationLoc,
-                fare: estimatedFare,
-                status: "searching",
-                time: new Date()
+                pickup: pickupLoc, destination: destinationLoc,
+                fare: estimatedFare, status: "searching", time: new Date()
             });
             listenToRideStatus(rideId);
         };
@@ -359,8 +366,10 @@
             });
         }
 
-        document.getElementById('pickup-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchPlace('pickup'); });
-        document.getElementById('dest-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchPlace('dest'); });
+        // تفعيل البحث عند ضغط Enter
+        document.getElementById('pickup-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') window.searchPlace('pickup'); });
+        document.getElementById('dest-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') window.searchPlace('dest'); });
+
     </script>
 </body>
 
