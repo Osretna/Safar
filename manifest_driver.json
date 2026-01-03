@@ -1,0 +1,9 @@
+{
+  "name": "مشواري - كابتن",
+  "short_name": "الكابتن",
+  "start_url": "driver.html",
+  "display": "standalone",
+  "background_color": "#27ae60",
+  "theme_color": "#27ae60",
+  "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/235/235889.png", "sizes": "512x512", "type": "image/png" }]
+}

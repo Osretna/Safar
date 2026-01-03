@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة التحكم - إضافة سائق جديد</title>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            padding: 20px;
+            background: #f0f2f5;
+            text-align: center;
+        }
+
+        .admin-form {
+            max-width: 400px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        input {
+            width: 90%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .btn-save {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>إضافة/تعديل بيانات سائق</h2>
+    <div class="admin-form">
+        <input type="text" id="driver-uid" placeholder="رقم التعريف (UID) من Firebase">
+        <hr>
+        <input type="text" id="driver-name" placeholder="اسم السائق الكامل">
+        <input type="text" id="driver-phone" placeholder="رقم الهاتف">
+        <input type="text" id="car-model" placeholder="موديل السيارة (مثلاً: لانسر 2020)">
+        <input type="text" id="car-color" placeholder="لون السيارة">
+        <input type="text" id="car-plate" placeholder="أرقام وحروف اللوحة">
+        <button class="btn-save" onclick="saveDriver()">حفظ بيانات السائق الرسمية</button>
+        <p id="msg"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD8R4p1WaBn6s4yQxWpZzUkfznphYUOqqs",
+            authDomain: "web-app-fb3f8.firebaseapp.com",
+            projectId: "web-app-fb3f8",
+            storageBucket: "web-app-fb3f8.firebasestorage.app",
+            messagingSenderId: "1067792665032",
+            appId: "1:1067792665032:web:015d23d10e359490c2d8fd",
+            measurementId: "G-7KFBEHHB7W"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.saveDriver = async () => {
+            const uid = document.getElementById('driver-uid').value;
+            const data = {
+                driverName: document.getElementById('driver-name').value,
+                driverPhone: document.getElementById('driver-phone').value,
+                carModel: document.getElementById('car-model').value,
+                carColor: document.getElementById('car-color').value,
+                carPlate: document.getElementById('car-plate').value,
+                isAdminVerified: true // علامة لتوثيق أن البيانات من طرفك
+            };
+
+            try {
+                // حفظ البيانات في مجموعة خاصة تسمى drivers
+                await setDoc(doc(db, "verified_drivers", uid), data);
+                document.getElementById('msg').innerText = "✅ تم حفظ بيانات السائق بنجاح!";
+                document.getElementById('msg').style.color = "green";
+            } catch (e) {
+                alert("خطأ: تأكد من صلاحيات الوصول");
+            }
+        };
+    </script>
+</body>
+
+</html>
