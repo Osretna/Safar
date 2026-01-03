@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>لوحة التحكم - إضافة سائق جديد</title>
+    <title>لوحة تحكم المدير - مشواري</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Cairo', sans-serif;
@@ -14,11 +15,12 @@
 
         .admin-form {
             max-width: 400px;
-            margin: auto;
+            margin: 20px auto;
             background: white;
             padding: 20px;
             border-radius: 15px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            display: none;
         }
 
         input {
@@ -27,6 +29,7 @@
             margin: 10px 0;
             border: 1px solid #ddd;
             border-radius: 8px;
+            font-family: 'Cairo';
         }
 
         .btn-save {
@@ -39,26 +42,62 @@
             width: 100%;
             font-weight: bold;
         }
+
+        .btn-login {
+            background: #4285F4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #uid-display {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            margin: 10px auto;
+            max-width: 400px;
+            border-radius: 8px;
+            font-size: 12px;
+            word-break: break-all;
+            display: none;
+            border: 1px dashed red;
+        }
     </style>
 </head>
 
 <body>
-    <h2>إضافة/تعديل بيانات سائق</h2>
-    <div class="admin-form">
-        <input type="text" id="driver-uid" placeholder="رقم التعريف (UID) من Firebase">
-        <hr>
-        <input type="text" id="driver-name" placeholder="اسم السائق الكامل">
-        <input type="text" id="driver-phone" placeholder="رقم الهاتف">
-        <input type="text" id="car-model" placeholder="موديل السيارة (مثلاً: لانسر 2020)">
+
+    <h2>لوحة التحكم الإدارية 🔐</h2>
+
+    <div id="login-section">
+        <button class="btn-login" onclick="loginAdmin()">تسجيل الدخول كمدير</button>
+    </div>
+
+    <!-- هذا الجزء سيظهر لك الـ UID الخاص بك لنسخه -->
+    <div id="uid-display">
+        <b>رقم تعريفك (UID):</b> <br> <span id="my-uid"></span> <br>
+        <small>(انسخ هذا الرقم وضعه في Firebase Rules الآن)</small>
+    </div>
+
+    <div class="admin-form" id="admin-panel">
+        <h3 id="welcome-text">أهلاً بك</h3>
+        <input type="text" id="driver-uid" placeholder="UID السائق">
+        <input type="text" id="driver-name" placeholder="اسم السائق">
+        <input type="text" id="driver-phone" placeholder="هاتف السائق">
+        <input type="text" id="car-model" placeholder="موديل السيارة">
         <input type="text" id="car-color" placeholder="لون السيارة">
-        <input type="text" id="car-plate" placeholder="أرقام وحروف اللوحة">
-        <button class="btn-save" onclick="saveDriver()">حفظ بيانات السائق الرسمية</button>
+        <input type="text" id="car-plate" placeholder="رقم اللوحة">
+        <button class="btn-save" onclick="saveDriver()">حفظ السائق</button>
         <p id="msg"></p>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD8R4p1WaBn6s4yQxWpZzUkfznphYUOqqs",
@@ -66,11 +105,25 @@
             projectId: "web-app-fb3f8",
             storageBucket: "web-app-fb3f8.firebasestorage.app",
             messagingSenderId: "1067792665032",
-            appId: "1:1067792665032:web:015d23d10e359490c2d8fd",
-            measurementId: "G-7KFBEHHB7W"
+            appId: "1:1067792665032:web:015d23d10e359490c2d8fd"
         };
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        window.loginAdmin = async () => { await signInWithPopup(auth, provider); };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('admin-panel').style.display = 'block';
+                document.getElementById('uid-display').style.display = 'block';
+                // إظهار الـ UID فوراً
+                document.getElementById('my-uid').innerText = user.uid;
+            }
+        });
 
         window.saveDriver = async () => {
             const uid = document.getElementById('driver-uid').value;
@@ -80,16 +133,15 @@
                 carModel: document.getElementById('car-model').value,
                 carColor: document.getElementById('car-color').value,
                 carPlate: document.getElementById('car-plate').value,
-                isAdminVerified: true // علامة لتوثيق أن البيانات من طرفك
+                isAdminVerified: true
             };
 
             try {
-                // حفظ البيانات في مجموعة خاصة تسمى drivers
                 await setDoc(doc(db, "verified_drivers", uid), data);
-                document.getElementById('msg').innerText = "✅ تم حفظ بيانات السائق بنجاح!";
-                document.getElementById('msg').style.color = "green";
+                alert("✅ تم الحفظ بنجاح!");
             } catch (e) {
-                alert("خطأ: تأكد من صلاحيات الوصول");
+                console.error(e);
+                alert("❌ فشل: فيربيز يرفض الكتابة. تأكد أن الـ UID الموضح بالأحمر هو نفسه الموجود في القواعد.");
             }
         };
     </script>

@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>مشواري - اطلب رحلتك</title>
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-
     <style>
         :root {
             --primary: #000000;
@@ -33,7 +31,6 @@
             z-index: 1;
         }
 
-        /* شاشة الدخول */
         #auth-screen {
             position: fixed;
             inset: 0;
@@ -62,11 +59,9 @@
 
         .google-btn img {
             width: 22px;
-            height: 22px;
             margin-left: 10px;
         }
 
-        /* لوحة التحكم */
         .bottom-card {
             position: fixed;
             bottom: 20px;
@@ -104,7 +99,6 @@
             cursor: pointer;
         }
 
-        /* بطاقة السائق */
         .driver-info-card {
             position: fixed;
             bottom: 20px;
@@ -137,17 +131,26 @@
             margin-top: 10px;
             font-weight: bold;
         }
+
+        #complaint-btn {
+            display: none;
+            color: red;
+            text-decoration: underline;
+            cursor: pointer;
+            background: none;
+            border: none;
+            margin-top: 10px;
+            font-family: 'Cairo';
+        }
     </style>
 </head>
 
 <body>
-
     <div id="auth-screen">
         <h1>مشواري</h1>
         <p>أسرع وأرخص وسيلة للتنقل في مصر</p>
         <button class="google-btn" onclick="loginWithGoogle()">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg">
-            الدخول باستخدام جوجل
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"> الدخول باستخدام جوجل
         </button>
     </div>
 
@@ -156,27 +159,21 @@
     <div class="bottom-card" id="control-panel" style="display:none;">
         <div id="location-status" style="font-weight: bold; margin-bottom: 8px; font-size: 13px;">📍 حدد مكانك ووجهتك
         </div>
-
-        <!-- خانة مكان الالتقاء -->
         <div style="display: flex; gap: 5px; margin-bottom: 5px;">
             <input type="text" id="pickup-input" class="search-box"
-                style="margin-bottom:0; border-right: 4px solid #27ae60;" placeholder="اختر مكان الالتقاء من الخريطة">
+                style="margin-bottom:0; border-right: 4px solid #27ae60;" placeholder="مكان الالتقاء">
             <button onclick="searchPlace('pickup')"
-                style="background: #27ae60; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">🔍</button>
+                style="background: #27ae60; color: white; border: none; padding: 10px; border-radius: 8px;">🔍</button>
         </div>
-
-        <!-- خانة الوجهة -->
         <div style="display: flex; gap: 5px; margin-bottom: 8px;">
             <input type="text" id="dest-input" class="search-box"
                 style="margin-bottom:0; border-right: 4px solid #e74c3c;" placeholder="إلى أين ستذهب؟">
             <button onclick="searchPlace('dest')"
-                style="background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">🔍</button>
+                style="background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 8px;">🔍</button>
         </div>
-
         <div id="price-estimation"
             style="font-weight:bold; color:#2c3e50; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 14px;">
-            حدد الوجهة لحساب الأجرة...
-        </div>
+            حدد الوجهة لحساب الأجرة...</div>
         <button class="btn-request" id="main-btn" onclick="requestRide()">تأكيد وطلب الرحلة الآن</button>
     </div>
 
@@ -189,13 +186,14 @@
             <div id="d-plate" style="font-weight:bold; border:2px solid black; padding:5px;">لوحة السيارة</div>
         </div>
         <a href="#" id="d-phone" class="call-btn">📞 اتصل بالكابتن</a>
+        <button id="complaint-btn" onclick="submitComplaint()">تقديم شكوى ضد السائق</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -204,8 +202,7 @@
             projectId: "web-app-fb3f8",
             storageBucket: "web-app-fb3f8.firebasestorage.app",
             messagingSenderId: "1067792665032",
-            appId: "1:1067792665032:web:015d23d10e359490c2d8fd",
-            measurementId: "G-7KFBEHHB7W"
+            appId: "1:1067792665032:web:015d23d10e359490c2d8fd"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -213,23 +210,21 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        let map, pickupMarker, destinationMarker, driverMarker;
+        let map, pickupMarker, destinationMarker, driverMarker, passengerTimer;
         let pickupLoc = null, destinationLoc = null;
-        let estimatedFare = 0;
+        let estimatedFare = 0, currentRideId = null;
 
         window.loginWithGoogle = async () => {
             try { await signInWithPopup(auth, provider); }
             catch (e) { alert("حدث خطأ في الدخول"); }
         };
 
-        // دالة سحرية لتحويل الإحداثيات لاسم شارع/منطقة
         async function updateAddressField(lat, lng, inputId) {
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`);
                 const data = await res.json();
                 if (data.display_name) {
                     const addr = data.address;
-                    // تجميع اسم مختصر للعنوان
                     const shortName = addr.road || addr.suburb || addr.neighbourhood || addr.city || "موقع مجهول";
                     document.getElementById(inputId).value = shortName;
                 }
@@ -248,68 +243,36 @@
             if (map) return;
             map = L.map('map', { zoomControl: false }).setView([30.0444, 31.2357], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
             map.locate({ setView: true, maxZoom: 16 });
-
-            map.on('locationfound', (e) => {
-                if (!pickupLoc) setPickup(e.latlng.lat, e.latlng.lng);
-            });
-
-            // السماح بتغيير الوجهة بمجرد النقر على الخريطة
-            map.on('click', (e) => {
-                if (!pickupLoc) setPickup(e.latlng.lat, e.latlng.lng);
-                else setDestination(e.latlng.lat, e.latlng.lng);
-            });
+            map.on('locationfound', (e) => { if (!pickupLoc) setPickup(e.latlng.lat, e.latlng.lng); });
+            map.on('click', (e) => { if (!pickupLoc) setPickup(e.latlng.lat, e.latlng.lng); else setDestination(e.latlng.lat, e.latlng.lng); });
         }
 
         function setPickup(lat, lng) {
             pickupLoc = { lat, lng };
             if (pickupMarker) map.removeLayer(pickupMarker);
-            pickupMarker = L.marker([lat, lng], {
-                draggable: true,
-                icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', iconSize: [25, 41], iconAnchor: [12, 41] })
-            }).addTo(map).bindPopup("مكان الالتقاء").openPopup();
-
+            pickupMarker = L.marker([lat, lng], { draggable: true, icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', iconSize: [25, 41], iconAnchor: [12, 41] }) }).addTo(map);
             updateAddressField(lat, lng, 'pickup-input');
-
-            pickupMarker.on('dragend', (e) => {
-                const pos = e.target.getLatLng();
-                pickupLoc = { lat: pos.lat, lng: pos.lng };
-                updateAddressField(pos.lat, pos.lng, 'pickup-input');
-                calculateFare();
-            });
+            pickupMarker.on('dragend', (e) => { pickupLoc = e.target.getLatLng(); updateAddressField(pickupLoc.lat, pickupLoc.lng, 'pickup-input'); calculateFare(); });
             calculateFare();
         }
 
         function setDestination(lat, lng) {
             destinationLoc = { lat, lng };
             if (destinationMarker) map.removeLayer(destinationMarker);
-            destinationMarker = L.marker([lat, lng], {
-                draggable: true,
-                icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] })
-            }).addTo(map).bindPopup("وجهة الوصول").openPopup();
-
+            destinationMarker = L.marker([lat, lng], { draggable: true, icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] }) }).addTo(map);
             updateAddressField(lat, lng, 'dest-input');
-
-            destinationMarker.on('dragend', (e) => {
-                const pos = e.target.getLatLng();
-                destinationLoc = { lat: pos.lat, lng: pos.lng };
-                updateAddressField(pos.lat, pos.lng, 'dest-input');
-                calculateFare();
-            });
+            destinationMarker.on('dragend', (e) => { destinationLoc = e.target.getLatLng(); updateAddressField(destinationLoc.lat, destinationLoc.lng, 'dest-input'); calculateFare(); });
             calculateFare();
         }
 
         window.searchPlace = async (type) => {
             const query = document.getElementById(type === 'pickup' ? 'pickup-input' : 'dest-input').value;
-            if (query.length < 3) return;
-
             const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
             const data = await res.json();
             if (data.length > 0) {
                 const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
-                if (type === 'pickup') setPickup(lat, lon);
-                else setDestination(lat, lon);
+                if (type === 'pickup') setPickup(lat, lon); else setDestination(lat, lon);
                 map.flyTo([lat, lon], 15);
             }
         };
@@ -323,34 +286,48 @@
                 if (data.routes && data.routes[0]) {
                     const dist = data.routes[0].distance / 1000;
                     estimatedFare = Math.ceil(10 + (dist * 4.5) + 5);
-                    document.getElementById('price-estimation').innerHTML = `
-                        <div style="font-size:11px; color:green;">أرخص سعر في مصر</div>
-                        المسافة: ${dist.toFixed(1)} كم | الأجرة: ${estimatedFare} ج.م
-                    `;
+                    document.getElementById('price-estimation').innerHTML = `المسافة: ${dist.toFixed(1)} كم | الأجرة: ${estimatedFare} ج.م`;
                 }
             } catch (e) { console.log("Fare Error"); }
         }
 
         window.requestRide = async () => {
             if (!pickupLoc || !destinationLoc) return alert("حدد مكانك ووجهتك");
-            const btn = document.getElementById('main-btn');
-            btn.innerText = "جاري البحث عن كابتن..."; btn.disabled = true;
-
-            const rideId = "ride_" + auth.currentUser.uid;
-            await setDoc(doc(db, "rides", rideId), {
-                riderName: auth.currentUser.displayName,
-                pickup: pickupLoc, destination: destinationLoc,
-                fare: estimatedFare, status: "searching", time: new Date()
-            });
-            listenToRideStatus(rideId);
+            currentRideId = "ride_" + auth.currentUser.uid;
+            await setDoc(doc(db, "rides", currentRideId), { riderName: auth.currentUser.displayName, pickup: pickupLoc, destination: destinationLoc, fare: estimatedFare, status: "searching", time: Date.now() });
+            document.getElementById('main-btn').innerText = "جاري البحث عن كابتن...";
+            document.getElementById('main-btn').disabled = true;
+            listenToRideStatus(currentRideId);
         };
 
         function listenToRideStatus(rideId) {
             onSnapshot(doc(db, "rides", rideId), (snapshot) => {
                 const data = snapshot.data();
-                if (data && data.status === "accepted") {
+                if (!data) return;
+
+                // 1. التعامل مع حالات الوصول والعد التنازلي
+                if (data.status === "arrived") {
+                    if (!passengerTimer) startPassengerCountdown(data.arrivalTime);
+                }
+
+                if (data.status === "cancelled_noshow") {
+                    alert("تم إلغاء الرحلة لتأخرك عن السائق (أكثر من دقيقة).");
+                    clearInterval(passengerTimer);
+                    location.reload();
+                }
+
+                if (data.status === "cancelled_driver") {
+                    const reason = data.cancelReason || "لم يذكر السائق سبباً محدداً";
+                    alert(`⚠️ قام السائق بإلغاء الرحلة.\nالسبب المذكور: ${reason}`);
+                    clearInterval(passengerTimer);
+                    location.reload();
+                }
+
+                // 2. تحديث بيانات السائق وموقعه
+                if (data.status === "accepted" || data.status === "arrived") {
                     document.getElementById('control-panel').style.display = 'none';
                     document.getElementById('driver-card').style.display = 'block';
+                    document.getElementById('complaint-btn').style.display = 'block';
                     document.getElementById('d-name').innerText = data.driverName;
                     document.getElementById('d-car').innerText = `${data.carColor} - ${data.carModel}`;
                     document.getElementById('d-plate').innerText = data.carPlate;
@@ -363,13 +340,39 @@
                         } else { driverMarker.setLatLng(pos); }
                     }
                 }
+
+                if (data.status === "completed") {
+                    alert("شكراً لاستخدامك مشواري. نتمنى لك يوماً سعيداً!");
+                    location.reload();
+                }
             });
         }
 
-        // تفعيل البحث عند ضغط Enter
+        function startPassengerCountdown(arrivalTime) {
+            if (passengerTimer) return;
+            const statusLabel = document.getElementById('location-status');
+
+            passengerTimer = setInterval(() => {
+                const timeLeft = 60 - Math.floor((Date.now() - arrivalTime) / 1000);
+                if (timeLeft > 0) {
+                    statusLabel.innerHTML = `<b style="color:red; font-size:16px;">⚠️ السائق وصل! متبقي: ${timeLeft} ثانية للركوب.</b>`;
+                } else {
+                    clearInterval(passengerTimer);
+                    statusLabel.innerHTML = `<b style="color:darkred;">انتهى وقت الانتظار! يحق للسائق الإلغاء الآن.</b>`;
+                }
+            }, 1000);
+        }
+
+        window.submitComplaint = async () => {
+            const reason = prompt("ما هي شكواك ضد السائق؟");
+            if (reason) {
+                await setDoc(doc(db, "complaints", "comp_" + Date.now()), { rideId: currentRideId, riderId: auth.currentUser.uid, reason: reason, time: new Date() });
+                alert("تم إرسال الشكوى للإدارة.");
+            }
+        };
+
         document.getElementById('pickup-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') window.searchPlace('pickup'); });
         document.getElementById('dest-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') window.searchPlace('dest'); });
-
     </script>
 </body>
 

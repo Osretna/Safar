@@ -4,17 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>لوحة السائق - مشواري</title>
+    <title>مشواري - كابتن</title>
 
-    <link rel="manifest" href="manifest_driver.json">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --driver-theme: #27ae60;
-            --dark: #2c3e50;
-            --white: #ffffff;
+            --driver-green: #27ae60;
+            --dark-bg: #1a1a1a;
         }
 
         body,
@@ -23,96 +22,22 @@
             padding: 0;
             height: 100%;
             font-family: 'Cairo', sans-serif;
+            background: #f0f2f5;
             overflow: hidden;
-            background: #f4f7f6;
         }
 
         #map {
-            height: 70vh;
-            width: 100vw;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
             z-index: 1;
         }
 
-        /* شاشة الاستقبال/الرادار */
-        .status-header {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            background: var(--dark);
-            color: white;
-            padding: 15px;
-            text-align: center;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        /* حاوية الطلبات الواردة */
-        .order-card {
-            position: fixed;
-            bottom: 20px;
-            left: 5%;
-            width: 90%;
-            background: var(--white);
-            z-index: 1000;
-            border-radius: 15px;
-            padding: 20px;
-            box-sizing: border-box;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            display: none;
-            /* تظهر فقط عند وجود طلب */
-            border: 2px solid var(--driver-theme);
-            animation: slideUp 0.5s ease;
-        }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-            }
-
-            to {
-                transform: translateY(0);
-            }
-        }
-
-        .btn {
-            width: 100%;
-            border: none;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        .btn-accept {
-            background: var(--driver-theme);
-            color: white;
-        }
-
-        .btn-finish {
-            background: #e74c3c;
-            color: white;
-            display: none;
-        }
-
-        #online-toggle {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 1000;
-            background: white;
-            padding: 10px;
-            border-radius: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            font-size: 12px;
-        }
-
-        /* شاشة الدخول */
         #auth-screen {
             position: fixed;
             inset: 0;
-            background: var(--dark);
+            background: var(--dark-bg);
             z-index: 2000;
             display: flex;
             flex-direction: column;
@@ -121,12 +46,73 @@
             color: white;
         }
 
-        input {
-            width: 80%;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 8px;
+        .google-btn {
+            background: #fff;
+            color: #444;
             border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Cairo';
+        }
+
+        .status-bar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            z-index: 1000;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .ride-alert {
+            position: fixed;
+            bottom: 30px;
+            left: 5%;
+            width: 90%;
+            background: white;
+            z-index: 1100;
+            border-radius: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-bottom: 8px solid var(--driver-green);
+        }
+
+        .on-trip-panel {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: white;
+            z-index: 1200;
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+            display: none;
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .btn-accept {
+            width: 100%;
+            background: var(--driver-green);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -134,32 +120,33 @@
 <body>
 
     <div id="auth-screen">
-        <h1>دخول السائقين</h1>
-        <input type="email" id="email" placeholder="بريد السائق">
-        <input type="password" id="password" placeholder="كلمة المرور">
-        <button class="btn btn-accept" style="width: 80%;" onclick="login()">تسجيل الدخول</button>
+        <h1 style="color: var(--driver-green);">مشواري - كابتن</h1>
+        <button class="google-btn" onclick="loginDriver()">تسجيل الدخول عبر جوجل</button>
     </div>
 
-    <div class="status-header" id="header-text">جاري الاتصال بالرادار...</div>
-
-    <div id="online-toggle">
-        <input type="checkbox" id="go-online" onchange="toggleOnline()"> وضع الاستعداد
-    </div>
-
+    <div class="status-bar" id="status-text">جاري الاتصال...</div>
     <div id="map"></div>
 
-    <div class="order-card" id="request-card">
-        <h3 style="margin:0">طلب رحلة جديد! 🚗</h3>
-        <p id="client-info">مسافة العميل: جاري الحساب...</p>
-        <button class="btn btn-accept" id="action-btn" onclick="acceptRide()">قبول الطلب</button>
-        <button class="btn btn-finish" id="finish-btn" onclick="finishRide()">إنهاء الرحلة</button>
+    <div id="ride-alert" class="ride-alert">
+        <h2 style="margin:0 0 10px 0;">طلب رحلة جديد! 🚗</h2>
+        <p id="fare-display" style="font-weight:bold; font-size: 20px; color: green;"></p>
+        <button class="btn-accept" onclick="acceptRide()">قبول الرحلة الآن</button>
+    </div>
+
+    <div id="on-trip-panel" class="on-trip-panel">
+        <button id="arrived-btn" class="btn-accept" onclick="driverArrived()">وصلت لنقطة الالتقاء</button>
+        <button id="cancel-noshow-btn" class="btn-accept" style="background:#f39c12; display:none;"
+            onclick="cancelRideDriver('noshow')">إلغاء (العميل لم يظهر)</button>
+        <button id="cancel-general-btn" class="btn-accept" style="background:#e74c3c;"
+            onclick="cancelRideDriver('general')">إلغاء لسبب آخر</button>
+        <button id="finish-btn" class="btn-accept" style="background:#000;" onclick="finishRide()">إنهاء الرحلة وتحصيل
+            المبلغ</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        let myVerifiedData = null;
+        import { getFirestore, doc, getDoc, updateDoc, collection, query, where, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD8R4p1WaBn6s4yQxWpZzUkfznphYUOqqs",
@@ -167,123 +154,152 @@
             projectId: "web-app-fb3f8",
             storageBucket: "web-app-fb3f8.firebasestorage.app",
             messagingSenderId: "1067792665032",
-            appId: "1:1067792665032:web:015d23d10e359490c2d8fd",
-            measurementId: "G-7KFBEHHB7W"
+            appId: "1:1067792665032:web:015d23d10e359490c2d8fd"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
 
-        let map, driverMarker, currentRideId = null, watchId = null;
+        let map, driverMarker, currentRideId = null, myData = null, countdownTimer;
 
-        // 1. الدخول
-        window.login = async () => {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            try { await signInWithEmailAndPassword(auth, email, pass); }
-            catch (e) { alert("بيانات غير صحيحة"); }
+        window.loginDriver = async () => {
+            try { await signInWithPopup(auth, provider); }
+            catch (e) { alert("خطأ في تسجيل الدخول"); }
         };
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // جلب البيانات التي أدخلها الأدمن (أنت) حصراً لهذا السائق
-                const docRef = doc(db, "verified_drivers", user.uid);
-                const docSnap = await getDoc(docRef);
-
+                const docSnap = await getDoc(doc(db, "verified_drivers", user.uid));
                 if (docSnap.exists()) {
-                    myVerifiedData = docSnap.data();
+                    myData = docSnap.data();
                     document.getElementById('auth-screen').style.display = 'none';
-                    initDriverMap();
-                    console.log("تم تحميل بياناتك الرسمية يا كابتن:", myVerifiedData.driverName);
+                    document.getElementById('status-text').innerText = "الكابتن " + myData.driverName + " متصل الآن";
+                    initMap();
+                    listenForRides();
                 } else {
-                    alert("عذراً، لم يتم تفعيل حسابك من قبل الإدارة بعد.");
-                    auth.signOut(); // طرده من التطبيق لأنه غير مسجل عندك
+                    alert("حسابك غير مفعل!"); auth.signOut(); location.reload();
                 }
             }
         });
 
-
-
-        function initDriverMap() {
-            map = L.map('map', { zoomControl: false }).setView([30.0444, 31.2357], 14);
+        function initMap() {
+            if (map) return;
+            map = L.map('map', { zoomControl: false }).setView([30.0444, 31.2357], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-            navigator.geolocation.getCurrentPosition(pos => {
-                const p = [pos.coords.latitude, pos.coords.longitude];
-                map.setView(p, 15);
-                driverMarker = L.marker(p, { icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/235/235889.png', iconSize: [40, 40] }) }).addTo(map);
-            });
+            navigator.geolocation.watchPosition((pos) => {
+                const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                if (!driverMarker) {
+                    driverMarker = L.marker([lat, lng], { icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/235/235889.png', iconSize: [35, 35] }) }).addTo(map);
+                } else {
+                    driverMarker.setLatLng([lat, lng]);
+                }
+                if (currentRideId) {
+                    updateDoc(doc(db, "rides", currentRideId), { driverLocation: { lat, lng } });
+                }
+            }, (err) => console.log(err), { enableHighAccuracy: true });
         }
 
-        // 2. البحث عن رحلات (الرادار)
-        window.toggleOnline = () => {
-            const isOnline = document.getElementById('go-online').checked;
-            const header = document.getElementById('header-text');
-
-            if (isOnline) {
-                header.innerText = "أنت الآن متاح لتلقي الطلبات";
-                header.style.background = "#27ae60";
-                startRadar();
-            } else {
-                header.innerText = "أنت غير متصل حالياً";
-                header.style.background = "#2c3e50";
-            }
-        };
-
-        function startRadar() {
+        function listenForRides() {
             const q = query(collection(db, "rides"), where("status", "==", "searching"));
             onSnapshot(q, (snapshot) => {
                 snapshot.docChanges().forEach((change) => {
-                    if (change.type === "added") {
-                        showRequest(change.doc.id, change.doc.data());
+                    if (change.type === "added" && !currentRideId) {
+                        const ride = change.doc.data();
+                        currentRideId = change.doc.id;
+                        document.getElementById('ride-alert').style.display = 'block';
+                        document.getElementById('fare-display').innerText = "الأجرة: " + ride.fare + " ج.م";
+                        L.marker([ride.pickup.lat, ride.pickup.lng]).addTo(map).bindPopup("مكان العميل").openPopup();
                     }
                 });
             });
         }
 
-        function showRequest(id, data) {
-            currentRideId = id;
-            document.getElementById('request-card').style.display = 'block';
-            document.getElementById('client-info').innerText = "عميل جديد يطلب رحلة!";
-        }
-
-        // عند قبول الرحلة، نستخدم البيانات التي جلبناها من الأدمن
         window.acceptRide = async () => {
-            if (!currentRideId || !myVerifiedData) return;
+            if (!currentRideId || !myData) return;
+
+            const qActive = query(collection(db, "rides"),
+                where("driverId", "==", auth.currentUser.uid),
+                where("status", "in", ["accepted", "arrived", "started"]));
+
+            const activeTrips = await getDocs(qActive);
+            if (!activeTrips.empty) {
+                alert("لديك رحلة نشطة حالياً!"); return;
+            }
 
             await updateDoc(doc(db, "rides", currentRideId), {
                 status: "accepted",
                 driverId: auth.currentUser.uid,
-                driverName: myVerifiedData.driverName,
-                driverPhone: myVerifiedData.driverPhone,
-                carModel: myVerifiedData.carModel,
-                carColor: myVerifiedData.carColor,
-                carPlate: myVerifiedData.carPlate,
-                driverLocation: currentDriverLatLng
+                driverName: myData.driverName,
+                driverPhone: myData.driverPhone,
+                carModel: myData.carModel,
+                carPlate: myData.carPlate
             });
+
+            document.getElementById('ride-alert').style.display = 'none';
+            document.getElementById('on-trip-panel').style.display = 'block';
+            document.getElementById('status-text').innerText = "متجه للعميل الآن...";
         };
 
-        document.getElementById('action-btn').style.display = 'none';
-        document.getElementById('finish-btn').style.display = 'block';
-        document.getElementById('header-text').innerText = "متجه للعميل الآن...";
-
-        // بدء إرسال الموقع للراكب كل 5 ثواني
-        watchId = navigator.geolocation.watchPosition(async (pos) => {
-            const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            // تحديث موقع السائق على الخريطة الخاصة به
-            driverMarker.setLatLng([loc.lat, loc.lng]);
-            // إرسال الموقع لـ Firebase لكي يراه الراكب
+        // --- وظيفة "وصلت" مع العداد التنازلي ---
+        window.driverArrived = async () => {
+            const arrivalTime = Date.now();
             await updateDoc(doc(db, "rides", currentRideId), {
-                driverLocation: loc
+                status: "arrived",
+                arrivalTime: arrivalTime
             });
-        });
+
+            document.getElementById('arrived-btn').style.display = 'none';
+            startTimer(60); // 60 ثانية
+        };
+
+        function startTimer(seconds) {
+            let timeLeft = seconds;
+            const statusBar = document.getElementById('status-text');
+
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                statusBar.innerText = "انتظار العميل: " + timeLeft + " ثانية";
+                statusBar.style.background = "#f39c12";
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    statusBar.innerText = "انتهى وقت الانتظار! يمكنك الإلغاء.";
+                    statusBar.style.background = "#e74c3c";
+                    document.getElementById('cancel-noshow-btn').style.display = 'block';
+                }
+            }, 1000);
+        }
+
+        window.cancelRideDriver = async (type) => {
+            let reason = "";
+            if (type === 'noshow') {
+                reason = "العميل لم يحضر في الوقت المحدد (60 ثانية)";
+            } else {
+                reason = prompt("يرجى كتابة سبب الإلغاء للعميل:");
+                if (!reason) return;
+            }
+
+            if (confirm("هل أنت متأكد من إلغاء الرحلة؟")) {
+                clearInterval(countdownTimer);
+                await updateDoc(doc(db, "rides", currentRideId), {
+                    status: "cancelled_driver",
+                    cancelReason: reason
+                });
+                location.reload();
+            }
+        };
 
         window.finishRide = async () => {
-            await updateDoc(doc(db, "rides", currentRideId), { status: "completed" });
-            navigator.geolocation.clearWatch(watchId);
-            location.reload(); // إعادة تصفير الحالة للرحلة القادمة
-        }
+            if (confirm("هل انتهت الرحلة؟")) {
+                clearInterval(countdownTimer);
+                await updateDoc(doc(db, "rides", currentRideId), { status: "completed" });
+                location.reload();
+            }
+        };
+
     </script>
 </body>
 
