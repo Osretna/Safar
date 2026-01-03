@@ -278,7 +278,6 @@
                 driverLocation: loc
             });
         });
-        }
 
         window.finishRide = async () => {
             await updateDoc(doc(db, "rides", currentRideId), { status: "completed" });
