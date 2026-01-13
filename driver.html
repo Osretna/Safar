@@ -14,6 +14,7 @@
         :root {
             --driver-green: #27ae60;
             --dark-bg: #1a1a1a;
+            --red: #e74c3c;
         }
 
         body,
@@ -53,8 +54,6 @@
             padding: 12px 25px;
             border-radius: 8px;
             font-size: 18px;
-            display: flex;
-            align-items: center;
             cursor: pointer;
             font-weight: bold;
             font-family: 'Cairo';
@@ -64,12 +63,13 @@
             position: fixed;
             top: 0;
             width: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             color: white;
             padding: 15px;
             text-align: center;
             z-index: 1000;
             font-weight: bold;
+            backdrop-filter: blur(5px);
             transition: 0.3s;
         }
 
@@ -81,11 +81,27 @@
             background: white;
             z-index: 1100;
             border-radius: 20px;
-            padding: 20px;
+            padding: 25px;
             box-sizing: border-box;
             display: none;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
             border-bottom: 8px solid var(--driver-green);
+            text-align: center;
+            animation: pulse-green 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
 
         .on-trip-panel {
@@ -95,16 +111,14 @@
             background: white;
             z-index: 1200;
             padding: 20px;
-            border-radius: 20px 20px 0 0;
+            border-radius: 30px 30px 0 0;
             display: none;
-            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
-            box-sizing: border-box;
             text-align: center;
+            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-accept {
+        .btn {
             width: 100%;
-            background: var(--driver-green);
             color: white;
             border: none;
             padding: 16px;
@@ -113,33 +127,84 @@
             font-weight: bold;
             cursor: pointer;
             margin-bottom: 10px;
+            transition: 0.2s;
+        }
+
+        .recenter-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 260px;
+            width: 55px;
+            height: 55px;
+            background: white;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1500;
+            cursor: pointer;
+            border: 2px solid var(--driver-green);
+            color: var(--driver-green);
+            font-size: 26px;
+        }
+
+        .sos-btn {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            background: var(--red);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            z-index: 3000;
+            border: none;
+            font-weight: bold;
+            display: none;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+            cursor: pointer;
         }
     </style>
 </head>
 
 <body>
 
+    <button id="sos-btn-driver" class="sos-btn" onclick="triggerDriverSOS()">SOS</button>
+    <div id="recenter-btn" class="recenter-btn" onclick="enableFollowMode()">🎯</div>
+
     <div id="auth-screen">
         <h1 style="color: var(--driver-green);">مشواري - كابتن</h1>
-        <button class="google-btn" onclick="loginDriver()">تسجيل الدخول عبر جوجل</button>
+        <button class="google-btn" id="driver-login-btn">سجل دخولك لبدء العمل</button>
     </div>
 
-    <div class="status-bar" id="status-text">جاري الاتصال...</div>
+    <div class="status-bar" id="status-text">جاري الاتصال بالنظام...</div>
     <div id="map"></div>
 
     <div id="ride-alert" class="ride-alert">
         <h2 style="margin:0 0 10px 0;">طلب رحلة جديد! 🚗</h2>
-        <p id="fare-display" style="font-weight:bold; font-size: 20px; color: green;"></p>
-        <button class="btn-accept" onclick="acceptRide()">قبول الرحلة الآن</button>
+        <div id="ride-details" style="margin-bottom: 15px; font-size: 14px; color: #555;"></div>
+        <p id="fare-display"
+            style="font-weight:bold; font-size: 24px; color: var(--driver-green); margin-bottom: 15px;"></p>
+
+        <div style="margin-bottom: 15px; background: #f9f9f9; padding: 10px; border-radius: 10px;">
+            <input type="number" id="counter-price" placeholder="اطلب سعرك الخاص؟"
+                style="width:120px; padding:8px; border-radius:5px; border:1px solid #ddd; text-align:center;">
+            <button onclick="counterOffer()"
+                style="background:#f39c12; border:none; padding:8px 15px; color:white; border-radius:5px; margin-top:5px; cursor:pointer; font-family:'Cairo';">إرسال
+                عرض سعر</button>
+        </div>
+
+        <button class="btn" style="background:var(--driver-green)" id="accept-btn">قبول بسعر العميل</button>
     </div>
 
     <div id="on-trip-panel" class="on-trip-panel">
-        <button id="arrived-btn" class="btn-accept" onclick="driverArrived()">وصلت لنقطة الالتقاء</button>
-        <button id="cancel-noshow-btn" class="btn-accept" style="background:#f39c12; display:none;"
+        <div id="trip-info" style="margin-bottom: 15px; font-weight: bold; color: #333; font-size: 16px;">أنت الآن في
+            رحلة نشطة</div>
+        <button id="arrived-btn" class="btn" style="background:var(--driver-green)">وصلت لنقطة الالتقاء</button>
+        <button id="cancel-noshow-btn" class="btn" style="background:#f39c12; display:none;"
             onclick="cancelRideDriver('noshow')">إلغاء (العميل لم يظهر)</button>
-        <button id="cancel-general-btn" class="btn-accept" style="background:#e74c3c;"
-            onclick="cancelRideDriver('general')">إلغاء لسبب آخر</button>
-        <button id="finish-btn" class="btn-accept" style="background:#000;" onclick="finishRide()">إنهاء الرحلة وتحصيل
+        <button id="finish-btn" class="btn" style="background:#000;" onclick="finishRide()">إنهاء الرحلة وتحصيل
             المبلغ</button>
     </div>
 
@@ -162,12 +227,11 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        let map, driverMarker, currentRideId = null, myData = null, countdownTimer;
+        let map, driverMarker, pickupMarker, routeLine, currentRideId = null, myData = null, countdownTimer;
+        let driverCurrentPos = null, isFollowMode = true;
 
-        window.loginDriver = async () => {
-            try { await signInWithPopup(auth, provider); }
-            catch (e) { alert("خطأ في تسجيل الدخول"); }
-        };
+        // 1. الدخول
+        document.getElementById('driver-login-btn').addEventListener('click', () => signInWithPopup(auth, provider));
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -175,59 +239,89 @@
                 if (docSnap.exists()) {
                     myData = docSnap.data();
                     document.getElementById('auth-screen').style.display = 'none';
-                    document.getElementById('status-text').innerText = "الكابتن " + myData.driverName + " متصل الآن";
+                    document.getElementById('status-text').innerText = "الكابتن " + myData.driverName + " متصل";
                     initMap();
-                    listenForRides();
+                    checkDriverState();
+                    listenForNewRides();
                 } else {
                     alert("حسابك غير مفعل!"); auth.signOut(); location.reload();
                 }
             }
         });
 
+        // 2. الخريطة والملاحة (Follow Mode)
         function initMap() {
             if (map) return;
-            map = L.map('map', { zoomControl: false }).setView([30.0444, 31.2357], 15);
+            map = L.map('map', { zoomControl: false }).setView([30.04, 31.23], 17);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+            map.on('movestart', () => { isFollowMode = false; document.getElementById('recenter-btn').style.display = 'flex'; });
+
             navigator.geolocation.watchPosition((pos) => {
-                const lat = pos.coords.latitude, lng = pos.coords.longitude;
-                if (!driverMarker) {
-                    driverMarker = L.marker([lat, lng], { icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/235/235889.png', iconSize: [35, 35] }) }).addTo(map);
-                } else {
-                    driverMarker.setLatLng([lat, lng]);
-                }
-                if (currentRideId) {
-                    updateDoc(doc(db, "rides", currentRideId), { driverLocation: { lat, lng } });
-                }
-            }, (err) => console.log(err), { enableHighAccuracy: true });
+                const { latitude, longitude } = pos.coords;
+                driverCurrentPos = { lat: latitude, lng: longitude };
+
+                if (!driverMarker) driverMarker = L.marker([latitude, longitude], { icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/235/235889.png', iconSize: [45, 45] }) }).addTo(map);
+                else driverMarker.setLatLng([latitude, longitude]);
+
+                if (isFollowMode) map.panTo([latitude, longitude], { animate: true });
+                if (currentRideId) updateDoc(doc(db, "rides", currentRideId), { driverLocation: driverCurrentPos });
+            }, null, { enableHighAccuracy: true });
         }
 
-        function listenForRides() {
+        window.enableFollowMode = () => {
+            isFollowMode = true;
+            document.getElementById('recenter-btn').style.display = 'none';
+            if (routeLine) map.fitBounds(routeLine.getBounds(), { padding: [40, 40], animate: true });
+            else if (driverCurrentPos) map.setView([driverCurrentPos.lat, driverCurrentPos.lng], 17, { animate: true });
+        };
+
+        // 3. رادار الطلبات والمساومة
+        function listenForNewRides() {
             const q = query(collection(db, "rides"), where("status", "==", "searching"));
-            onSnapshot(q, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
+            onSnapshot(q, (snap) => {
+                snap.docChanges().forEach(change => {
                     if (change.type === "added" && !currentRideId) {
                         const ride = change.doc.data();
                         currentRideId = change.doc.id;
-                        document.getElementById('ride-alert').style.display = 'block';
-                        document.getElementById('fare-display').innerText = "الأجرة: " + ride.fare + " ج.م";
-                        L.marker([ride.pickup.lat, ride.pickup.lng]).addTo(map).bindPopup("مكان العميل").openPopup();
+                        showRideAlert(ride);
                     }
                 });
             });
         }
 
-        window.acceptRide = async () => {
-            if (!currentRideId || !myData) return;
+        function showRideAlert(ride) {
+            document.getElementById('ride-alert').style.display = 'block';
+            document.getElementById('fare-display').innerText = ride.fare + " ج.م";
+            document.getElementById('ride-details').innerText = `عميل: ${ride.riderName} | خيارات: ${ride.options?.ac ? '❄️' : ''} ${ride.options?.lady ? '👩' : ''}`;
+            if (pickupMarker) map.removeLayer(pickupMarker);
+            pickupMarker = L.marker([ride.pickup.lat, ride.pickup.lng]).addTo(map).bindPopup("مكان اللقاء").openPopup();
+            map.flyTo([ride.pickup.lat, ride.pickup.lng], 16);
+        }
 
-            const qActive = query(collection(db, "rides"),
-                where("driverId", "==", auth.currentUser.uid),
-                where("status", "in", ["accepted", "arrived", "started"]));
+        window.counterOffer = async () => {
+            const newPrice = document.getElementById('counter-price').value;
+            if (!newPrice) return alert("ادخل السعر المطلوب أولاً");
 
-            const activeTrips = await getDocs(qActive);
-            if (!activeTrips.empty) {
-                alert("لديك رحلة نشطة حالياً!"); return;
-            }
+            await updateDoc(doc(db, "rides", currentRideId), {
+                status: "driver_offered",
+                driver_price: newPrice,
+                driverId: auth.currentUser.uid,
+                driverName: myData.driverName,
+                driverPhone: myData.driverPhone,
+                carModel: myData.carModel,
+                carPlate: myData.carPlate,
+                carColor: myData.carColor
+            });
+            document.getElementById('ride-alert').style.display = 'none';
+            document.getElementById('status-text').innerText = "⏳ جاري انتظار رد العميل على سعرك...";
+            setupRideListener(); // لمراقبة الرد
+        };
+
+        // 4. قبول الرحلة وبدء المشوار
+        document.getElementById('accept-btn').addEventListener('click', async () => {
+            const q = await getDocs(query(collection(db, "rides"), where("driverId", "==", auth.currentUser.uid), where("status", "in", ["accepted", "arrived"])));
+            if (!q.empty) return alert("لديك رحلة نشطة بالفعل!");
 
             await updateDoc(doc(db, "rides", currentRideId), {
                 status: "accepted",
@@ -235,68 +329,106 @@
                 driverName: myData.driverName,
                 driverPhone: myData.driverPhone,
                 carModel: myData.carModel,
-                carPlate: myData.carPlate
+                carPlate: myData.carPlate,
+                carColor: myData.carColor,
+                driverLocation: driverCurrentPos
             });
 
-            document.getElementById('ride-alert').style.display = 'none';
-            document.getElementById('on-trip-panel').style.display = 'block';
-            document.getElementById('status-text').innerText = "متجه للعميل الآن...";
-        };
+            localStorage.setItem('driverActiveRideId', currentRideId);
+            setupRideListener();
+        });
 
-        // --- وظيفة "وصلت" مع العداد التنازلي ---
-        window.driverArrived = async () => {
-            const arrivalTime = Date.now();
-            await updateDoc(doc(db, "rides", currentRideId), {
-                status: "arrived",
-                arrivalTime: arrivalTime
-            });
+        function setupRideListener() {
+            onSnapshot(doc(db, "rides", currentRideId), (snap) => {
+                const data = snap.data();
+                if (!data) return;
 
-            document.getElementById('arrived-btn').style.display = 'none';
-            startTimer(60); // 60 ثانية
-        };
-
-        function startTimer(seconds) {
-            let timeLeft = seconds;
-            const statusBar = document.getElementById('status-text');
-
-            countdownTimer = setInterval(() => {
-                timeLeft--;
-                statusBar.innerText = "انتظار العميل: " + timeLeft + " ثانية";
-                statusBar.style.background = "#f39c12";
-
-                if (timeLeft <= 0) {
-                    clearInterval(countdownTimer);
-                    statusBar.innerText = "انتهى وقت الانتظار! يمكنك الإلغاء.";
-                    statusBar.style.background = "#e74c3c";
-                    document.getElementById('cancel-noshow-btn').style.display = 'block';
+                if (data.status === "accepted") {
+                    document.getElementById('ride-alert').style.display = 'none';
+                    document.getElementById('on-trip-panel').style.display = 'block';
+                    document.getElementById('sos-btn-driver').style.display = 'block';
+                    document.getElementById('status-text').innerText = "تم قبول الرحلة! توجه للعميل";
+                    document.getElementById('status-text').style.background = "var(--driver-green)";
+                    drawRoute(data.pickup, data.destination);
                 }
-            }, 1000);
+
+                if (data.status === "rejected") {
+                    document.getElementById('status-text').innerText = "⚠️ العميل رفض سعرك! جرب سعر تاني";
+                    document.getElementById('status-text').style.background = "var(--red)";
+                    document.getElementById('ride-alert').style.display = 'block';
+                }
+
+                if (data.status === "cancelled_rider") {
+                    alert("نعتذر.. قام العميل بإلغاء الرحلة.");
+                    localStorage.removeItem('driverActiveRideId');
+                    location.reload();
+                }
+            });
         }
 
-        window.cancelRideDriver = async (type) => {
-            let reason = "";
-            if (type === 'noshow') {
-                reason = "العميل لم يحضر في الوقت المحدد (60 ثانية)";
-            } else {
-                reason = prompt("يرجى كتابة سبب الإلغاء للعميل:");
-                if (!reason) return;
+        async function checkDriverState() {
+            const savedRideId = localStorage.getItem('driverActiveRideId');
+            if (savedRideId) {
+                const snap = await getDoc(doc(db, "rides", savedRideId));
+                if (snap.exists() && !['completed', 'cancelled_driver'].includes(snap.data().status)) {
+                    currentRideId = savedRideId;
+                    setupRideListener();
+                }
             }
+        }
 
-            if (confirm("هل أنت متأكد من إلغاء الرحلة؟")) {
-                clearInterval(countdownTimer);
-                await updateDoc(doc(db, "rides", currentRideId), {
-                    status: "cancelled_driver",
-                    cancelReason: reason
-                });
-                location.reload();
+        async function drawRoute(start, end) {
+            const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.routes[0]) {
+                const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                if (routeLine) map.removeLayer(routeLine);
+                routeLine = L.polyline(coords, { color: '#27ae60', weight: 6 }).addTo(map);
+                map.fitBounds(routeLine.getBounds(), { padding: [40, 40], animate: true });
+            }
+        }
+
+        // 5. إدارة الرحلة
+        document.getElementById('arrived-btn').addEventListener('click', async () => {
+            await updateDoc(doc(db, "rides", currentRideId), { status: "arrived", arrivalTime: Date.now() });
+            document.getElementById('arrived-btn').style.display = 'none';
+            let left = 60;
+            countdownTimer = setInterval(() => {
+                left--;
+                document.getElementById('status-text').innerText = `انتظار العميل: ${left} ثانية`;
+                if (left <= 0) {
+                    clearInterval(countdownTimer);
+                    document.getElementById('cancel-noshow-btn').style.display = 'block';
+                    document.getElementById('status-text').innerText = "يمكنك الإلغاء الآن";
+                }
+            }, 1000);
+        });
+
+        window.cancelRideDriver = async (type) => {
+            const reason = type === 'noshow' ? "العميل لم يظهر" : prompt("سبب الإلغاء؟");
+            if (reason) {
+                await updateDoc(doc(db, "rides", currentRideId), { status: "cancelled_driver", cancelReason: reason });
+                localStorage.removeItem('driverActiveRideId'); location.reload();
             }
         };
 
         window.finishRide = async () => {
             if (confirm("هل انتهت الرحلة؟")) {
-                clearInterval(countdownTimer);
                 await updateDoc(doc(db, "rides", currentRideId), { status: "completed" });
-                location.reload();
+                localStorage.removeItem('driverActiveRideId'); location.reload();
+            }
+        };
+
+        window.triggerDriverSOS = async () => {
+            if (confirm("🚨 هل تعرضت لكمين أو خطر؟ سيتم إرسال موقعك فوراً للإدارة!")) {
+                await updateDoc(doc(db, "rides", currentRideId), {
+                    sos_active: true, // الحقل الموحد
+                    sos_by: "driver",
+                    sos_time: Date.now(),
+                    driver_sos_location: driverCurrentPos
+                });
+                alert("تم إرسال الاستغاثة بنجاح.");
             }
         };
 

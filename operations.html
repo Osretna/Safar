@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>مركز السيطرة والطوارئ - مشواري</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --danger: #ff0000; --dark: #0f0f0f; --accent: #00ff88; }
+        body { font-family: 'Cairo'; margin: 0; display: flex; height: 100vh; overflow: hidden; background: var(--dark); }
+
+        /* شاشة الدخول */
+        #admin-login-screen { position: fixed; inset: 0; background: var(--dark); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        .login-card { background: #1e1e1e; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #333; }
+        .btn-google { background: white; color: #444; border: none; padding: 12px 25px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+
+        /* التصميم الرئيسي */
+        #sidebar { width: 400px; background: #181818; color: white; display: flex; flex-direction: column; box-shadow: 5px 0 20px rgba(0,0,0,1); }
+        .header { padding: 25px; background: var(--danger); text-align: center; font-weight: bold; font-size: 22px; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .list-section { flex: 1; overflow-y: auto; padding: 15px; }
+        
+        #map { flex: 1; height: 100%; border-right: 1px solid #333; }
+
+        /* بطاقة استغاثة مطورة */
+        .sos-alert-card { 
+            background: #2a0000; color: white; padding: 18px; border-radius: 15px; margin-bottom: 15px; 
+            border: 2px solid var(--danger); cursor: pointer; position: relative;
+            animation: glow-red 1.5s infinite;
+        }
+        @keyframes glow-red { 0% { box-shadow: 0 0 5px var(--danger); } 50% { box-shadow: 0 0 20px var(--danger); } 100% { box-shadow: 0 0 5px var(--danger); } }
+        
+        .address-box { font-size: 11px; background: rgba(255,255,255,0.1); padding: 5px; border-radius: 5px; margin-top: 8px; color: #ff9f9f; line-height: 1.4; }
+
+        .trip-card { background: #252525; padding: 12px; border-radius: 10px; margin-bottom: 10px; font-size: 13px; border-left: 5px solid var(--accent); }
+        .btn-resolve { background: var(--accent); color: #000; border: none; padding: 8px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; width: 100%; }
+        
+        #danger-overlay { position: fixed; inset: 0; border: 15px solid var(--danger); z-index: 9000; pointer-events: none; display: none; animation: flash 0.5s infinite; }
+        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="admin-login-screen">
+        <div class="login-card">
+            <h1 style="color:var(--danger)">🚨 مركز التحكم والسيطرة</h1>
+            <p>تحديد مواقع الطوارئ بدقة متناهية</p>
+            <button class="btn-google" id="btn-admin-login">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20">
+                تسجيل دخول المدير
+            </button>
+        </div>
+    </div>
+
+    <div id="danger-overlay"></div>
+    <audio id="alarm-sound" src="https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3" loop></audio>
+
+    <div id="sidebar">
+        <div class="header">🆘 بلاغات الاستغاثة النشطة</div>
+        <div class="list-section" id="sos-container">
+            <p style="text-align:center; opacity:0.5; margin-top:30px;">النظام يعمل.. بانتظار إشارات الطوارئ</p>
+        </div>
+        
+        <div style="padding:12px; background:#111; font-size:14px; text-align:center; color: var(--accent); border-top: 1px solid #333;">🚕 الرادار الحي للرحلات</div>
+        <div class="list-section" id="trips-container"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD8R4p1WaBn6s4yQxWpZzUkfznphYUOqqs",
+            authDomain: "web-app-fb3f8.firebaseapp.com",
+            projectId: "web-app-fb3f8",
+            storageBucket: "web-app-fb3f8.firebasestorage.app",
+            messagingSenderId: "1067792665032",
+            appId: "1:1067792665032:web:015d23d10e359490c2d8fd"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        const ADMIN_UID = "X2Ms0cpnOeRByHx4iCkVinJ8vsE3";
+
+        document.getElementById('btn-admin-login').addEventListener('click', async () => {
+            try { await signInWithPopup(auth, provider); }
+            catch (e) { alert("فشل الدخول"); }
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.uid === ADMIN_UID) {
+                document.getElementById('admin-login-screen').style.display = 'none';
+                startOperationsRoom();
+            } else if (user) {
+                alert("صلاحيات غير كافية!");
+                auth.signOut();
+            }
+        });
+
+        async function getExactAddress(lat, lng) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`);
+                const data = await res.json();
+                return data.display_name || "جاري جلب العنوان...";
+            } catch (e) { return "تعذر جلب اسم الشارع"; }
+        }
+
+        function startOperationsRoom() {
+            const map = L.map('map', { zoomControl: true }).setView([30.04, 31.23], 8);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+            let markers = {};
+            let circles = {};
+            const alarm = document.getElementById('alarm-sound');
+
+            onSnapshot(collection(db, "rides"), (snapshot) => {
+                const sosBox = document.getElementById('sos-container');
+                const tripBox = document.getElementById('trips-container');
+                const overlay = document.getElementById('danger-overlay');
+                
+                let anySos = false;
+                sosBox.innerHTML = "";
+                tripBox.innerHTML = "";
+
+                snapshot.forEach(async rideDoc => {
+                    const data = rideDoc.data();
+                    const id = rideDoc.id;
+                    const loc = data.driverLocation || data.pickup;
+
+                    if (data.sos_active === true) {
+                        anySos = true;
+                        const address = await getExactAddress(loc.lat, loc.lng);
+                        
+                        const card = document.createElement('div');
+                        card.className = 'sos-alert-card';
+                        card.innerHTML = `
+                            <div style="font-weight:bold; font-size:16px;">🆘 بلاغ عاجل من ${data.sos_by === 'rider' ? 'الراكب' : 'السائق'}</div>
+                            <div style="margin-top:5px;">الاسم: ${data.riderName}</div>
+                            <div class="address-box">📍 الموقع الدقيق: ${address}</div>
+                            <button class="btn-resolve" onclick="resolveEmergency('${id}')">تم إنهاء الخطر وإغلاق البلاغ ✅</button>
+                        `;
+                        card.onclick = () => map.flyTo([loc.lat, loc.lng], 19, { animate: true, duration: 2 });
+                        sosBox.appendChild(card);
+                        updatePrecisionMarker(id, loc, 'red', map, markers, circles);
+                    } 
+                    else if (['accepted', 'arrived', 'started'].includes(data.status)) {
+                        const card = document.createElement('div');
+                        card.className = 'trip-card';
+                        card.innerHTML = `🚕 ${data.riderName} مع ${data.driverName || 'الكابتن'}`;
+                        card.onclick = () => map.flyTo([loc.lat, loc.lng], 17);
+                        tripBox.appendChild(card);
+                        updatePrecisionMarker(id, loc, '#00ff88', map, markers, circles);
+                    }
+                });
+
+                if (anySos) {
+                    overlay.style.display = 'block';
+                    alarm.play().catch(() => {});
+                } else {
+                    overlay.style.display = 'none';
+                    alarm.pause();
+                    if (sosBox.innerHTML === "") sosBox.innerHTML = '<p style="text-align:center; opacity:0.3;">لا يوجد طوارئ</p>';
+                }
+            });
+        }
+
+        function updatePrecisionMarker(id, loc, color, map, markers, circles) {
+            if (!loc) return;
+
+            // تحديث النقطة المركزية
+            if (markers[id]) {
+                markers[id].setLatLng([loc.lat, loc.lng]);
+            } else {
+                markers[id] = L.circleMarker([loc.lat, loc.lng], { 
+                    color: color, 
+                    radius: color === 'red' ? 12 : 7, 
+                    fillOpacity: 1,
+                    weight: 3
+                }).addTo(map);
+            }
+
+            // إضافة هالة (Pulse Effect) حول الموقع لسهولة العثور عليه
+            if (circles[id]) {
+                circles[id].setLatLng([loc.lat, loc.lng]);
+            } else {
+                circles[id] = L.circle([loc.lat, loc.lng], {
+                    radius: color === 'red' ? 50 : 20,
+                    color: color,
+                    fillOpacity: 0.1,
+                    weight: 1
+                }).addTo(map);
+            }
+        }
+
+        window.resolveEmergency = async (id) => {
+            if(confirm("تأكيد حل المشكلة؟ سيختفي البلاغ من الشاشة.")) {
+                await updateDoc(doc(db, "rides", id), { sos_active: false });
+            }
+        };
+    </script>
+</body>
+</html>
